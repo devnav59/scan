@@ -34,6 +34,9 @@ class TextTriggerAnalyzer(private val config: TextTriggerConfig) {
 
     companion object {
         private const val TAG = "TextTriggerAnalyzer"
+        var lastOcrFullText: String = ""
+        var lastOcrLinesCount: Int = 0
+        var lastSearchKeywords: String = ""
         // Regex های پیشرفته برای عدد اعشاری - از تنظیمات کاربر یا پیش‌فرض
         private val DEFAULT_DECIMAL_REGEXES = listOf(
             Regex("""\d{1,3}(?:,\d{3})*\.\d+"""), // 1,934.56
@@ -55,6 +58,12 @@ class TextTriggerAnalyzer(private val config: TextTriggerConfig) {
         try {
             val image = InputImage.fromBitmap(bitmap, 0)
             val visionText = recognizer.process(image).await()
+
+            // Save debug info
+            lastOcrFullText = visionText.text.take(500)
+            lastOcrLinesCount = visionText.textBlocks.sumOf { it.lines.size }
+            lastSearchKeywords = "${config.buyKeywords} | ${config.sellKeywords}"
+            Log.d(TAG, "Full OCR: ${visionText.text.take(200)}")
 
             val allLines = mutableListOf<OcrLine>()
             for ((blockIdx, block) in visionText.textBlocks.withIndex()) {

@@ -2,7 +2,11 @@ package dev.tradescanner.ui.overlay
 
 import android.content.Context
 import android.graphics.PixelFormat
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.view.*
 import android.widget.Button
 import android.widget.TextView
@@ -29,8 +33,15 @@ class FloatingWindowManager(
 
     private var tvStatus: TextView? = null
     private var tvPrice: TextView? = null
+    private var tvType: TextView? = null
+    private var tvRaw: TextView? = null
+    private var tvDebug: TextView? = null
     private var tvSlTp: TextView? = null
     private var tvScanCount: TextView? = null
+    private var tvBeep: TextView? = null
+
+    private var toneGenerator: ToneGenerator? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     fun show() {
         if (isShowing) return
@@ -55,8 +66,18 @@ class FloatingWindowManager(
 
             tvStatus = floatingView!!.findViewById(R.id.tvFloatStatus)
             tvPrice = floatingView!!.findViewById(R.id.tvFloatPrice)
+            tvType = floatingView!!.findViewById(R.id.tvFloatType)
+            tvRaw = floatingView!!.findViewById(R.id.tvFloatRaw)
+            tvDebug = floatingView!!.findViewById(R.id.tvFloatDebug)
             tvSlTp = floatingView!!.findViewById(R.id.tvSlTp)
             tvScanCount = floatingView!!.findViewById(R.id.tvScanCount)
+            tvBeep = floatingView!!.findViewById(R.id.tvBeepIndicator)
+
+            try {
+                toneGenerator = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 80)
+            } catch (e: Exception) {
+                Log.e("FloatingMgr", "ToneGenerator init failed", e)
+            }
 
             val btnClose = floatingView!!.findViewById<View>(R.id.btnClose)
             val btnPause = floatingView!!.findViewById<Button>(R.id.btnFloatPause)
@@ -70,7 +91,8 @@ class FloatingWindowManager(
             btnPause.setOnClickListener {
                 isPaused = !isPaused
                 btnPause.text = if (isPaused) "Resume" else "Pause"
-                tvStatus?.text = if (isPaused) "متوقف شده" else "در حال اسکن..."
+                tvStatus?.text = if (isPaused) "متوقف شده - Pause" else "در حال اسکن... - Active"
+                tvDebug?.text = if (isPaused) "Paused" else "Resumed, waiting for signal..."
                 callback.onPauseClicked(isPaused)
             }
 
@@ -78,7 +100,6 @@ class FloatingWindowManager(
                 callback.onSettingsClicked()
             }
 
-            // Drag handling
             var initialX = 0
             var initialY = 0
             var initialTouchX = 0f
@@ -92,7 +113,6 @@ class FloatingWindowManager(
                         initialY = params!!.y
                         initialTouchX = event.rawX
                         initialTouchY = event.rawY
-                        // Double tap detection for mini mode
                         val now = System.currentTimeMillis()
                         if (now - lastClickTime < 300) {
                             toggleMiniMode()
@@ -112,7 +132,8 @@ class FloatingWindowManager(
 
             windowManager.addView(floatingView, params)
             isShowing = true
-            Log.d("FloatingMgr", "Floating window shown")
+            Log.d("FloatingMgr", "Floating window shown with debug & beep")
+            updateDebug("Floating window shown, waiting for OCR...")
         } catch (e: Exception) {
             Log.e("FloatingMgr", "Error showing floating", e)
         }
@@ -125,26 +146,30 @@ class FloatingWindowManager(
         } catch (e: Exception) {}
         floatingView = null
         isShowing = false
+        try { toneGenerator?.release() } catch (e: Exception) {}
+        toneGenerator = null
     }
 
     private fun toggleMiniMode() {
         isMini = !isMini
         floatingView?.let { view ->
             val status = view.findViewById<TextView>(R.id.tvFloatStatus)
+            val debug = view.findViewById<TextView>(R.id.tvFloatDebug)
+            val raw = view.findViewById<TextView>(R.id.tvFloatRaw)
             val sltp = view.findViewById<TextView>(R.id.tvSlTp)
             val count = view.findViewById<TextView>(R.id.tvScanCount)
             val buttons = view.findViewById<View>(R.id.btnFloatPause)?.parent as? View
             if (isMini) {
                 status?.visibility = View.GONE
+                debug?.visibility = View.GONE
+                raw?.visibility = View.GONE
                 sltp?.visibility = View.GONE
                 count?.visibility = View.GONE
                 buttons?.visibility = View.GONE
-                view.layoutParams?.let {
-                    params?.width = WindowManager.LayoutParams.WRAP_CONTENT
-                    params?.height = WindowManager.LayoutParams.WRAP_CONTENT
-                }
             } else {
                 status?.visibility = View.VISIBLE
+                debug?.visibility = View.VISIBLE
+                raw?.visibility = View.VISIBLE
                 sltp?.visibility = View.VISIBLE
                 count?.visibility = View.VISIBLE
                 buttons?.visibility = View.VISIBLE
@@ -160,11 +185,7 @@ class FloatingWindowManager(
 
     fun updatePrice(price: Double?, displayText: String) {
         tvPrice?.post {
-            if (price == null) {
-                tvPrice?.text = displayText
-            } else {
-                tvPrice?.text = displayText
-            }
+            tvPrice?.text = displayText
         }
     }
 
@@ -174,5 +195,74 @@ class FloatingWindowManager(
 
     fun updateScanCount(count: Int) {
         tvScanCount?.post { tvScanCount?.text = "$count scans" }
+    }
+
+    fun showDetection(signal: DetectedSignal) {
+        mainHandler.post {
+            tvType?.text = "نوع: ${signal.type} - ${if (signal.type.name == "BUY") "خرید 🟢" else "فروش 🔴"}"
+            tvType?.setTextColor(if (signal.type.name == "BUY") 0xFF00E676.toInt() else 0xFFFF5252.toInt())
+            tvPrice?.text = "قیمت: ${signal.price}"
+            tvPrice?.setTextColor(0xFFFFFF00.toInt())
+            tvRaw?.text = "OCR: ${signal.rawOcrText.take(120)}"
+            tvStatus?.text = "✅ سیگنال یافت شد @ ${signal.price}"
+            tvBeep?.visibility = View.VISIBLE
+            mainHandler.postDelayed({ tvBeep?.visibility = View.INVISIBLE }, 800)
+        }
+        playBeep(signal.type.name)
+    }
+
+    fun showNoSignalDebug(ocrLinesCount: Int, lastOcrTextSample: String) {
+        mainHandler.post {
+            tvType?.text = "نوع: --"
+            tvType?.setTextColor(0xFFAAAAAA.toInt())
+            tvPrice?.text = "بدون سیگنال - در حال رصد..."
+            tvRaw?.text = "OCR lines: $ocrLinesCount | نمونه: ${lastOcrTextSample.take(80)}"
+        }
+    }
+
+    fun updateDebug(debugText: String) {
+        tvDebug?.post {
+            tvDebug?.text = "Debug: $debugText"
+        }
+    }
+
+    fun updateRawOcr(raw: String) {
+        tvRaw?.post {
+            tvRaw?.text = "OCR: $raw"
+        }
+    }
+
+    private fun playBeep(type: String) {
+        try {
+            if (type == "BUY") {
+                toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP, 250)
+            } else {
+                toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP2, 250)
+            }
+            mainHandler.postDelayed({
+                try { toneGenerator?.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 200) } catch (e: Exception) {}
+            }, 300)
+        } catch (e: Exception) {
+            Log.e("FloatingMgr", "Beep failed", e)
+            try {
+                floatingView?.post {
+                    try {
+                        val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                        audio.playSoundEffect(AudioManager.FX_KEY_CLICK, 1.0f)
+                    } catch (ex: Exception) {}
+                }
+            } catch (ex: Exception) {}
+        }
+    }
+
+    fun updateFromSignal(signal: DetectedSignal?, status: String, scanCount: Int, slTp: String, debug: String) {
+        if (signal != null) {
+            showDetection(signal)
+        } else {
+            tvStatus?.post { tvStatus?.text = status }
+        }
+        updateScanCount(scanCount)
+        updateSlTp(slTp)
+        updateDebug(debug)
     }
 }

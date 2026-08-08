@@ -108,17 +108,15 @@ class FloatingScannerService : Service() {
                 startForegroundWithNotification()
 
                 if (resultCode != -1 && data != null) {
-                    // Save for restart
                     preferences?.saveMediaProjectionData(resultCode, data)
                     setupMediaProjection(resultCode, data)
                 } else {
-                    // Try to restore previous media projection
                     val (savedCode, savedData) = preferences?.getMediaProjectionData() ?: Pair(-1, null)
                     if (savedCode != -1 && savedData != null) {
                         setupMediaProjection(savedCode, savedData)
                     } else {
-                        // If no media projection, still show floating window but scanning will be limited to accessibility takeScreenshot (API 30+)
                         Log.w(TAG, "No MediaProjection data, using accessibility screenshot fallback if available")
+                        floatingManager?.updateDebug("⚠ MediaProjection بدون دسترسی - fallback Accessibility فعال")
                     }
                 }
 
@@ -131,7 +129,7 @@ class FloatingScannerService : Service() {
     }
 
     private fun startForegroundWithNotification() {
-        val notification = buildNotification("Scanning...", "در حال اسکن صفحه")
+        val notification = buildNotification("Scanning... با بوق فعال 🔊", "در حال اسکن صفحه - بوق هنگام تشخیص")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(NOTIF_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
         } else {
@@ -159,7 +157,7 @@ class FloatingScannerService : Service() {
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(CHANNEL_ID, getString(R.string.channel_scanner), NotificationManager.IMPORTANCE_LOW)
-            channel.description = "Trade scanner foreground service"
+            channel.description = "Trade scanner foreground service with beep"
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)
         }
@@ -170,7 +168,6 @@ class FloatingScannerService : Service() {
             val projectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
             mediaProjection = projectionManager.getMediaProjection(resultCode, data)
 
-            val metrics = DisplayMetrics()
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     val windowMetrics = windowManager?.currentWindowMetrics
@@ -179,6 +176,7 @@ class FloatingScannerService : Service() {
                     screenHeight = bounds?.height() ?: 1920
                     screenDensity = resources.displayMetrics.densityDpi
                 } else {
+                    val metrics = DisplayMetrics()
                     @Suppress("DEPRECATION")
                     windowManager?.defaultDisplay?.getRealMetrics(metrics)
                     screenWidth = metrics.widthPixels
@@ -198,6 +196,7 @@ class FloatingScannerService : Service() {
                 override fun onStop() {
                     super.onStop()
                     Log.w(TAG, "MediaProjection stopped")
+                    floatingManager?.updateDebug("❌ MediaProjection متوقف شد")
                     stopScanning()
                 }
             }, null)
@@ -210,8 +209,10 @@ class FloatingScannerService : Service() {
             )
 
             Log.d(TAG, "MediaProjection setup done ${screenWidth}x${screenHeight}")
+            floatingManager?.updateDebug("✅ MediaProjection OK ${screenWidth}x${screenHeight} - اسکن لحظه‌ای فعال")
         } catch (e: Exception) {
             Log.e(TAG, "setupMediaProjection error", e)
+            floatingManager?.updateDebug("❌ خطای MediaProjection: ${e.message}")
         }
     }
 
@@ -226,9 +227,8 @@ class FloatingScannerService : Service() {
     private fun startScanningLoop() {
         val config = preferences?.loadOrderConfig()
         val textConfig = preferences?.loadTextTriggerConfig()
-        val interval = config?.scanIntervalMs ?: 900L
+        val interval = config?.scanIntervalMs ?: 600L
 
-        // Load templates if any
         val buyTemplate = preferences?.loadTemplate("buy")
         val sellTemplate = preferences?.loadTemplate("sell")
         analyzer = ScreenAnalyzer(buyTemplate, sellTemplate, textConfig)
@@ -237,7 +237,8 @@ class FloatingScannerService : Service() {
 
         scanJob?.cancel()
         scanJob = serviceScope.launch {
-            Log.d(TAG, "Scanning loop started interval=$interval")
+            Log.d(TAG, "Scanning loop started interval=$interval mode=${textConfig?.detectionMode}")
+            floatingManager?.updateDebug("🔄 لوپ اسکن شروع شد interval=$interval mode=${textConfig?.detectionMode} keywords=${textConfig?.buyKeywords}")
             while (isActive) {
                 if (!isPaused) {
                     try {
@@ -248,17 +249,26 @@ class FloatingScannerService : Service() {
                             handleScanResult(signals)
                             bitmap.recycle()
                         } else {
-                            // Try accessibility screenshot fallback (Android 11+)
                             val fallback = tryAccessibilityScreenshot()
                             if (fallback != null) {
                                 totalScans++
                                 val signals = analyzer?.analyze(fallback) ?: emptyList()
                                 handleScanResult(signals)
                                 fallback.recycle()
+                            } else {
+                                // No bitmap at all - show debug
+                                if (totalScans % 10 == 0) {
+                                    withContext(Dispatchers.Main) {
+                                        floatingManager?.updateDebug("⚠ bitmap null - MediaProjection و Accessibility هر دو null - دسترسی‌ها را چک کنید")
+                                    }
+                                }
                             }
                         }
                     } catch (e: Exception) {
                         Log.e(TAG, "scan loop error", e)
+                        withContext(Dispatchers.Main) {
+                            floatingManager?.updateDebug("❌ خطای لوپ: ${e.message}")
+                        }
                     }
                 }
                 delay(interval)
@@ -281,7 +291,6 @@ class FloatingScannerService : Service() {
                 Bitmap.Config.ARGB_8888
             )
             bitmap.copyPixelsFromBuffer(buffer)
-            // Crop to original width
             val cropped = if (bitmap.width > screenWidth) {
                 Bitmap.createBitmap(bitmap, 0, 0, screenWidth, screenHeight).also { bitmap.recycle() }
             } else bitmap
@@ -295,20 +304,16 @@ class FloatingScannerService : Service() {
     }
 
     private suspend fun tryAccessibilityScreenshot(): Bitmap? {
-        // Android 11+ AccessibilityService.takeScreenshot() can capture silently
         return withContext(Dispatchers.Main) {
             try {
                 val service = TradeScannerAccessibilityService.instance ?: return@withContext null
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    // This API is async with callback
-                    var resultBitmap: Bitmap? = null
                     val latch = CompletableDeferred<Bitmap?>()
                     service.takeScreenshot(Display.DEFAULT_DISPLAY, service.mainExecutor, object : AccessibilityService.TakeScreenshotCallback {
                         override fun onSuccess(screenshot: AccessibilityService.ScreenshotResult) {
                             try {
                                 val bitmap = Bitmap.wrapHardwareBuffer(screenshot.hardwareBuffer, screenshot.colorSpace)
                                 if (bitmap != null) {
-                                    // Copy to software bitmap for processing
                                     val software = bitmap.copy(Bitmap.Config.ARGB_8888, false)
                                     latch.complete(software)
                                     bitmap.recycle()
@@ -334,47 +339,55 @@ class FloatingScannerService : Service() {
 
     private suspend fun handleScanResult(signals: List<DetectedSignal>) {
         withContext(Dispatchers.Main) {
+            val textConfig = preferences?.loadTextTriggerConfig()
+            val debugModeInfo = "Mode=${textConfig?.detectionMode} | BuyKw=${textConfig?.buyKeywords?.take(20)} | SellKw=${textConfig?.sellKeywords?.take(20)} | Scans=$totalScans"
+            val lastOcrDebug = dev.tradescanner.analyzer.TextTriggerAnalyzer.lastOcrFullText.take(100)
+            val lastOcrLines = dev.tradescanner.analyzer.TextTriggerAnalyzer.lastOcrLinesCount
+
             if (signals.isEmpty()) {
                 noSignalCount++
-                // If had previous signal and now gone for N consecutive scans, delete pending order
-                if (lastDetectedPrice != null && noSignalCount >= 4) { // ~ 3-4 seconds
+                val ocrSample = if (lastOcrDebug.isNotBlank()) lastOcrDebug else "OCR خالی - شاید صفحه تاریک است یا مجوز اسکرین درست نیست"
+                floatingManager?.updateDebug("🔍 در حال رصد زنده... $debugModeInfo | lines=$lastOcrLines | OCR: $ocrSample | noSignal=$noSignalCount | lastPrice=$lastDetectedPrice")
+                floatingManager?.showNoSignalDebug(lastOcrLines, ocrSample)
+
+                if (lastDetectedPrice != null && noSignalCount >= 6) {
                     val config = preferences?.loadOrderConfig()
                     if (config?.deleteOnDisappear == true) {
                         Log.d(TAG, "Signal disappeared, deleting order price=$lastDetectedPrice")
-                        floatingManager?.updateStatus("سیگنال حذف شد - در حال حذف اردر...", null)
+                        floatingManager?.updateStatus("❌ سیگنال حذف شد - در حال حذف اردر $lastDetectedPrice", null)
+                        floatingManager?.updateDebug("سیگنال ناپدید شد - حذف اردر $lastDetectedPrice")
                         val result = MT5Automator.getInstance().deletePendingOrder(lastDetectedPrice)
                         Log.d(TAG, "delete result $result")
                         pendingState = PendingOrderState()
                         lastDetectedPrice = null
                         floatingManager?.updatePrice(null, "بدون سیگنال - اردر حذف شد")
                     } else {
-                        noSignalCount = 0 // keep order
+                        noSignalCount = 0
                     }
                 } else {
-                    floatingManager?.updateStatus("در حال اسکن... ($totalScans) - بدون سیگنال", null)
-                    floatingManager?.updatePrice(null, "بدون سیگنال")
+                    floatingManager?.updateStatus("🔍 اسکن زنده ($totalScans) - بدون سیگنال - منتظر: ${textConfig?.buyKeywords?.split(',')?.firstOrNull()?.trim() ?: 'N/A'}", null)
+                    floatingManager?.updatePrice(null, "⏳ در حال رصد لحظه‌ای...")
                 }
             } else {
                 noSignalCount = 0
-                // Take strongest signal (highest confidence) or first BUY if exists
                 val best = signals.maxByOrNull { it.confidence } ?: signals.first()
                 Log.d(TAG, "Detected ${best.type} price=${best.price} conf=${best.confidence} raw=${best.rawOcrText}")
                 lastDetectionTime = System.currentTimeMillis()
 
-                // Check if price changed
-                val tolerance = preferences?.loadOrderConfig()?.priceTolerance ?: 0.01
+                floatingManager?.showDetection(best)
+                floatingManager?.updateDebug("✅ ${best.type} @ ${best.price} conf=${String.format("%.2f", best.confidence)} | ${best.rawOcrText.take(80)}")
+
+                val tolerance = preferences?.loadOrderConfig()?.priceTolerance ?: 0.05
                 val priceChanged = lastDetectedPrice == null || kotlin.math.abs(lastDetectedPrice!! - best.price) > tolerance
 
                 if (priceChanged) {
                     if (pendingState.placedPrice != null) {
-                        floatingManager?.updateStatus("قیمت تغییر کرد ${pendingState.placedPrice} -> ${best.price} حذف اردر قبلی", best)
-                        // Delete previous
+                        floatingManager?.updateStatus("🔄 قیمت تغییر کرد ${pendingState.placedPrice} -> ${best.price} حذف قبلی", best)
                         MT5Automator.getInstance().deletePendingOrder(pendingState.placedPrice)
                         delay(800)
                     }
 
-                    // Place new pending order
-                    floatingManager?.updateStatus("سیگنال جدید ${best.type} قیمت ${best.price} - ثبت اردر...", best)
+                    floatingManager?.updateStatus("🚀 سیگنال جدید ${best.type} @ ${best.price} - ثبت اردر + بوق 🔊", best)
                     val result = MT5Automator.getInstance().placePendingOrder(best.price, best.type)
                     Log.d(TAG, "place result $result for price ${best.price}")
 
@@ -382,23 +395,23 @@ class FloatingScannerService : Service() {
                         is dev.tradescanner.model.AutomationResult.Success -> {
                             pendingState = PendingOrderState(placedPrice = best.price, orderType = null, placedTime = System.currentTimeMillis())
                             lastDetectedPrice = best.price
-                            floatingManager?.updatePrice(best.price, "${best.type} @ ${best.price}")
-                            updateNotification("سفارش ثبت شد @ ${best.price}", "${best.type} pending order placed")
+                            floatingManager?.updatePrice(best.price, "${best.type} @ ${best.price} ✅")
+                            updateNotification("✅ سفارش ثبت شد @ ${best.price} 🔊", "${best.type} @ ${best.price} - بوق")
                         }
                         is dev.tradescanner.model.AutomationResult.Failure -> {
-                            floatingManager?.updateStatus("خطا در ثبت سفارش: ${result.reason}", best)
+                            floatingManager?.updateStatus("❌ خطا در ثبت سفارش: ${result.reason}", best)
+                            floatingManager?.updateDebug("MT5 error: ${result.reason}")
                         }
                         else -> {}
                     }
                 } else {
-                    // Same price, keep existing
-                    floatingManager?.updateStatus("سیگنال پایدار @ ${best.price}", best)
+                    floatingManager?.updateStatus("✅ سیگنال پایدار @ ${best.price} (${best.type})", best)
                     floatingManager?.updatePrice(best.price, "${best.type} @ ${best.price} (پایدار)")
                 }
             }
             floatingManager?.updateScanCount(totalScans)
             val cfg = preferences?.loadOrderConfig()
-            floatingManager?.updateSlTp("SL:${cfg?.stopLoss} TP:${cfg?.takeProfit} Lot:${cfg?.lotSize}")
+            floatingManager?.updateSlTp("SL:${cfg?.stopLoss} TP:${cfg?.takeProfit} Lot:${cfg?.lotSize} | ${textConfig?.detectionMode}")
         }
     }
 

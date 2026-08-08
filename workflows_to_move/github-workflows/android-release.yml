@@ -33,27 +33,38 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew || true
+      - name: Grant execute permission for scripts
+        run: |
+          chmod +x gradlew || true
+          chmod +x build_release.sh || true
+          chmod +x app/keystore/generate_keystore.sh || true
 
-      - name: Generate public keystore if not exists
+      - name: Generate public keystore if not exists (with openssl fallback)
         run: |
           KEYSTORE_PATH="app/keystore/tradescanner.jks"
           if [ ! -f "$KEYSTORE_PATH" ]; then
-            echo "Generating keystore at $KEYSTORE_PATH"
+            echo "Keystore not found, generating at $KEYSTORE_PATH"
             mkdir -p app/keystore
-            keytool -genkeypair -v \
-              -keystore "$KEYSTORE_PATH" \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -alias tradescanner \
-              -storepass tradescanner \
-              -keypass tradescanner \
-              -dname "CN=TradeScanner Public, OU=Dev, O=TradeScanner, L=Tehran, ST=Tehran, C=IR"
-            echo "Keystore generated"
+            if command -v keytool >/dev/null 2>&1; then
+              keytool -genkeypair -v \
+                -keystore "$KEYSTORE_PATH" \
+                -keyalg RSA \
+                -keysize 2048 \
+                -validity 10000 \
+                -alias tradescanner \
+                -storepass tradescanner \
+                -keypass tradescanner \
+                -dname "CN=TradeScanner Public, OU=Dev, O=TradeScanner, L=Tehran, ST=Tehran, C=IR"
+            else
+              echo "keytool not found, using openssl"
+              openssl genrsa -out /tmp/key.pem 2048
+              openssl req -new -x509 -key /tmp/key.pem -out /tmp/cert.pem -days 10000 -subj "/CN=TradeScanner Public/OU=Dev/O=TradeScanner/L=Tehran/ST=Tehran/C=IR"
+              openssl pkcs12 -export -out "$KEYSTORE_PATH" -inkey /tmp/key.pem -in /tmp/cert.pem -name tradescanner -password pass:tradescanner
+              rm -f /tmp/key.pem /tmp/cert.pem
+            fi
+            echo "Keystore generated, size $(ls -lh $KEYSTORE_PATH)"
           else
-            echo "Keystore exists, skipping generation"
+            echo "Keystore exists at $KEYSTORE_PATH, size $(ls -lh $KEYSTORE_PATH)"
           fi
 
           # Ensure keystore.properties exists for build
@@ -63,8 +74,9 @@ jobs:
           keyAlias=tradescanner
           keyPassword=tradescanner
           EOF
+          cat app/keystore/keystore.properties
 
-      - name: Setup Gradle (fallback if wrapper jar missing)
+      - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: 8.6
@@ -72,24 +84,35 @@ jobs:
       - name: Generate Wrapper Jar if missing
         run: |
           if [ ! -s gradle/wrapper/gradle-wrapper.jar ]; then
-            echo "Regenerating Gradle Wrapper Jar"
+            echo "gradle-wrapper.jar missing, regenerating with gradle wrapper"
             gradle wrapper --gradle-version 8.6
           fi
           ls -lh gradle/wrapper/
+          echo "Gradle version:"
+          ./gradlew --version || gradle --version
 
       - name: Build Release APK
         run: |
-          ./gradlew clean assembleRelease --stacktrace
+          ./gradlew clean assembleRelease --stacktrace --info
 
-      - name: List APKs
+      - name: List APKs & check outputs
         run: |
-          find app/build/outputs -name "*.apk" -type f | xargs ls -lh
+          echo "=== Listing outputs ==="
+          find app/build -type f | head -100
+          echo "=== APKs ==="
+          find app/build/outputs -name "*.apk" -type f -exec ls -lh {} \;
+          echo "=== Checking if APK exists ==="
+          ls -lh app/build/outputs/apk/release/ || echo "Release dir not found"
 
       - name: Upload Release APK
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: tradescanner-release-apk
-          path: app/build/outputs/apk/release/*.apk
+          path: |
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn
 
       - name: Create Release (on tag)
         if: startsWith(github.ref, 'refs/tags/')
@@ -100,13 +123,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Optional: Also upload to GitHub Release on manual dispatch
-      - name: Create Manual Release
+      - name: Create Manual Release (on dispatch)
         if: github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: manual-build-${{ github.run_number }}
           name: Manual Build ${{ github.run_number }}
           files: app/build/outputs/apk/release/*.apk
+          generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

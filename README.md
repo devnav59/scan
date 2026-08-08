@@ -191,14 +191,104 @@ cp workflows_to_move/github-workflows/android-release.yml .github/workflows/andr
 - [ ] پشتیبانی از چند نماد همزمان
 - [ ] تست با MT5 نسخه‌های مختلف (ساختار UI ممکن است فرق کند)
 
-## وابستگی‌ها
+## رفع مشکلات بیلد (Troubleshooting) - به‌روزرسانی بعد از گزارش خطا
+
+### مشکل ۱: `gradle-wrapper.jar` پیدا نشد
+**ارور:** `Could not find or load main class org.gradle.wrapper.GradleWrapperMain`
+
+**راه‌حل:**
+این فایل به دلیل محدودیت شبکه در محیط اولیه کامیت نشده بود. اکنون `gradlew` هوشمند شده و اگر jar نباشد خودکار سعی به ساخت می‌کند.
+
+برای ساخت دستی:
+```bash
+# اگر gradle نصب دارید
+gradle wrapper --gradle-version 8.6
+
+# یا از اسکریپت کمکی استفاده کنید:
+chmod +x build_release.sh
+./build_release.sh
+```
+
+در GitHub Actions ورکفلو خودکار jar را می‌سازد:
+```yaml
+- name: Setup Gradle
+  uses: gradle/actions/setup-gradle@v3
+  with:
+    gradle-version: 8.6
+- name: Generate Wrapper Jar if missing
+  run: gradle wrapper --gradle-version 8.6
+```
+
+### مشکل ۲: `tradescanner.jks` وجود ندارد یا امضا فیل می‌شود
+**ارور:** `Keystore file not found` یا `Failed to read key`
+
+**راه‌حل:**
+فایل keystore اکنون با `openssl` ساخته و کامیت شده (`app/keystore/tradescanner.jks` - ۲.۸KB - PKCS12). اگر باز هم خطا داد:
+
+```bash
+# روش ۱ - با keytool (اگر JDK دارید)
+bash app/keystore/generate_keystore.sh
+
+# روش ۲ - با openssl (بدون نیاز به JDK)
+openssl genrsa -out /tmp/key.pem 2048
+openssl req -new -x509 -key /tmp/key.pem -out /tmp/cert.pem -days 10000 -subj "/CN=TradeScanner Public/OU=Dev/O=TradeScanner/L=Tehran/ST=Tehran/C=IR"
+openssl pkcs12 -export -out app/keystore/tradescanner.jks -inkey /tmp/key.pem -in /tmp/cert.pem -name tradescanner -password pass:tradescanner
+rm /tmp/key.pem /tmp/cert.pem
+
+# ساخت properties
+cat > app/keystore/keystore.properties <<EOF
+storeFile=keystore/tradescanner.jks
+storePassword=tradescanner
+keyAlias=tradescanner
+keyPassword=tradescanner
+EOF
+```
+
+در `app/build.gradle.kts` اکنون اگر keystore وجود نداشته باشد خودکار به `debug` signing fallback می‌کند تا بیلد متوقف نشود.
+
+### مشکل ۳: وابستگی OpenCV پیدا نشد
+**ارور:** `Failed to resolve com.quickbirdstudios:opencv:4.8.0`
+
+**راه‌حل:**
+این وابستگی اکنون اختیاری شده و کامنت است. اپ بدون OpenCV هم با pure Kotlin NCC کار می‌کند (داخل `TemplateMatcher`). اگر دقت بیشتر می‌خواهید:
+
+```kotlin
+// در app/build.gradle.kts آنکامنت کنید:
+implementation("com.quickbirdstudios:opencv:4.12.0")
+```
+
+### مشکل ۴: `Task.await()` ناشناخته است
+**ارور:** `Unresolved reference: await`
+
+قبلا `kotlinx-coroutines-play-services` اضافه نشده بود. اکنون اضافه شد:
+```kotlin
+implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
+```
+
+### مشکل ۵: Minify/R8 خطا می‌دهد
+در نسخه اولیه `isMinifyEnabled=true` بود که ممکن بود کلاس‌های Accessibility را حذف کند. اکنون برای Release اولیه غیرفعال است:
+```kotlin
+isMinifyEnabled = false
+isShrinkResources = false
+```
+بعدا می‌توانید با اضافه کردن keep rules در `proguard-rules.pro` فعال کنید.
+
+### بیلد نهایی تست شده
+برای بیلد سریع بدون gradlew:
+```bash
+chmod +x build_release.sh
+./build_release.sh
+# خروجی در app/build/outputs/apk/release/
+```
+
+## وابستگی‌ها (به‌روزرسانی)
 
 - `androidx.core:core-ktx`
 - `androidx.appcompat:appcompat`
 - `com.google.android.material:material`
-- `com.google.mlkit:text-recognition` برای OCR
-- `com.quickbirdstudios:opencv:4.8.0` برای Template Matching (اختیاری، fallback Kotlin موجود است)
-- `org.jetbrains.kotlinx:kotlinx-coroutines-android`
+- `com.google.mlkit:text-recognition` برای OCR (۱۶.۰.۰)
+- `org.jetbrains.kotlinx:kotlinx-coroutines-android` + `play-services` برای await
+- OpenCV اختیاری (fallback Kotlin NCC موجود است)
 
 ## لایسنس
 

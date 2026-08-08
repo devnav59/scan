@@ -1,5 +1,6 @@
 package dev.tradescanner.service
 
+import android.accessibilityservice.AccessibilityService
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -19,6 +20,7 @@ import android.os.Build
 import android.os.IBinder
 import android.util.DisplayMetrics
 import android.util.Log
+import android.view.Display
 import android.view.Gravity
 import android.view.WindowManager
 import androidx.core.app.NotificationCompat
@@ -169,10 +171,26 @@ class FloatingScannerService : Service() {
             mediaProjection = projectionManager.getMediaProjection(resultCode, data)
 
             val metrics = DisplayMetrics()
-            windowManager?.defaultDisplay?.getRealMetrics(metrics)
-            screenWidth = metrics.widthPixels
-            screenHeight = metrics.heightPixels
-            screenDensity = metrics.densityDpi
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    val windowMetrics = windowManager?.currentWindowMetrics
+                    val bounds = windowMetrics?.bounds
+                    screenWidth = bounds?.width() ?: 1080
+                    screenHeight = bounds?.height() ?: 1920
+                    screenDensity = resources.displayMetrics.densityDpi
+                } else {
+                    @Suppress("DEPRECATION")
+                    windowManager?.defaultDisplay?.getRealMetrics(metrics)
+                    screenWidth = metrics.widthPixels
+                    screenHeight = metrics.heightPixels
+                    screenDensity = metrics.densityDpi
+                }
+            } catch (e: Exception) {
+                val dm = resources.displayMetrics
+                screenWidth = dm.widthPixels
+                screenHeight = dm.heightPixels
+                screenDensity = dm.densityDpi
+            }
 
             imageReader = ImageReader.newInstance(screenWidth, screenHeight, PixelFormat.RGBA_8888, 2)
 

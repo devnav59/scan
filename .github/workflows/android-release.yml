@@ -1,4 +1,3 @@
-
 # Place this file manually into .github/workflows/android-release.yml
 # طبق درخواست شما، ورکفلو در پوشه جداگانه قرار داده شده تا خودتان به پوشه اصلی منتقل کنید
 # Copy to: .github/workflows/android-release.yml

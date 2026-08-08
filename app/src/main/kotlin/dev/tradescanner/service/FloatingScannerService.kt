@@ -225,12 +225,13 @@ class FloatingScannerService : Service() {
 
     private fun startScanningLoop() {
         val config = preferences?.loadOrderConfig()
+        val textConfig = preferences?.loadTextTriggerConfig()
         val interval = config?.scanIntervalMs ?: 900L
 
         // Load templates if any
         val buyTemplate = preferences?.loadTemplate("buy")
         val sellTemplate = preferences?.loadTemplate("sell")
-        analyzer = ScreenAnalyzer(buyTemplate, sellTemplate)
+        analyzer = ScreenAnalyzer(buyTemplate, sellTemplate, textConfig)
 
         MT5Automator.getInstance().updateConfig(config ?: dev.tradescanner.model.OrderConfig())
 

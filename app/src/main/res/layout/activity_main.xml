@@ -46,7 +46,7 @@
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
-            <com.google.android.material.textfield.TextInputEditText android:id="@+id/etInterval" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/hint_scan_interval" android:inputType="number" android:text="900"/>
+            <com.google.android.material.textfield.TextInputEditText android:id="@+id/etInterval" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="@string/hint_scan_interval" android:inputType="number" android:text="600"/>
         </com.google.android.material.textfield.TextInputLayout>
 
         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="نوع اردر پندینگ:" android:layout_marginTop="12dp"/>
@@ -58,9 +58,41 @@
             <RadioButton android:id="@+id/rbSellStop" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Sell Stop"/>
         </RadioGroup>
 
+        <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#FF5722" android:layout_marginVertical="16dp"/>
+
+        <!-- NEW SECTION: Text Trigger Mode - Requested by user -->
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="مرحله ۳: تشخیص متنی - حالت جدید (پیشنهادی و مطمئن)" android:textStyle="bold" android:textColor="#E91E63"/>
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="به جای تشخیص تصویر، یک متن مشخص را روی صفحه پیدا می‌کند و عدد اعشاری مقابل آن را استخراج می‌کند. این روش لحظه‌ای و دقیق است.\nمثال: در تریدینگ‌ویو متنی مثل 'Long 1934.56' دارید، کلمه کلیدی 'Long' را وارد کنید، عدد 1934.56 به صورت خودکار برداشت می‌شود." android:textSize="11sp" android:layout_marginTop="4dp" android:textColor="#666"/>
+
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="حالت تشخیص:" android:layout_marginTop="12dp" android:textStyle="bold"/>
+        <RadioGroup android:id="@+id/rgDetectionMode" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginTop="4dp">
+            <RadioButton android:id="@+id/rbModeText" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="متن کلیدی + عدد اعشاری (پیشنهادی جدید) - TEXT" android:checked="true"/>
+            <RadioButton android:id="@+id/rbModeHybrid" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="ترکیبی - متن، تصویر، رنگ (HYBRID)"/>
+            <RadioButton android:id="@+id/rbModeImage" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="فقط الگوی تصویر (IMAGE)"/>
+            <RadioButton android:id="@+id/rbModeColor" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="فقط رنگ (COLOR)"/>
+        </RadioGroup>
+
+        <com.google.android.material.textfield.TextInputLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" style="@style/Widget.Material3.TextInputLayout.OutlinedBox" android:hint="متن کلیدی سیگنال خرید - با کاما جدا کن (مثل: Buy, Long, خرید)">
+            <com.google.android.material.textfield.TextInputEditText android:id="@+id/etBuyKeywords" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="text" android:text="Buy, Long, BUY, خرید"/>
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" style="@style/Widget.Material3.TextInputLayout.OutlinedBox" android:hint="متن کلیدی سیگنال فروش - با کاما جدا کن (مثل: Sell, Short, فروش)">
+            <com.google.android.material.textfield.TextInputEditText android:id="@+id/etSellKeywords" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="text" android:text="Sell, Short, SELL, فروش"/>
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" style="@style/Widget.Material3.TextInputLayout.OutlinedBox" android:hint="Regex عدد اعشاری (پیش‌فرض: \d+\.\d+ )">
+            <com.google.android.material.textfield.TextInputEditText android:id="@+id/etDecimalRegex" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="text" android:text="\d+\.\d+"/>
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" style="@style/Widget.Material3.TextInputLayout.OutlinedBox" android:hint="شعاع جستجوی عدد نزدیک متن (پیکسل) - پیش‌فرض 500">
+            <com.google.android.material.textfield.TextInputEditText android:id="@+id/etSearchRadius" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="number" android:text="500"/>
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="💡 نکته: متن را دقیق از روی صفحه تریدینگ‌ویو وارد کن. مثلا اگر اندیکاتورت می‌نویسد 'Buy Signal 1934.5'، کافیه بنویسی 'Buy Signal' یا فقط 'Buy'. اپ عدد اعشاری نزدیکش رو پیدا می‌کنه. هر وقت عدد تغییر کرد و سیگنال همسان بود، پندینگ قبلی حذف و جدید ثبت می‌شود." android:textSize="10sp" android:textColor="#4CAF50" android:layout_marginTop="8dp"/>
+
         <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#DDD" android:layout_marginVertical="16dp"/>
 
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="مرحله ۳: الگوهای سیگنال (اختیاری - اگر خالی باشد از تشخیص رنگ استفاده می‌شود)" android:textStyle="bold"/>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="مرحله ۴: الگوهای تصویری قدیمی (اختیاری)" android:textStyle="bold"/>
         <TextView android:id="@+id/tvBuyTemplateStatus" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="الگوی خرید: تنظیم نشده (تشخیص رنگ فعال)" android:layout_marginTop="8dp"/>
         <TextView android:id="@+id/tvSellTemplateStatus" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="الگوی فروش: تنظیم نشده" android:layout_marginTop="4dp"/>
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="8dp">
@@ -78,7 +110,7 @@
 
         <TextView android:id="@+id/tvStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/status_idle" android:textSize="14sp" android:layout_marginTop="16dp" android:padding="12dp" android:background="#EEE"/>
 
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:text="راهنما:\n۱- تریدینگ‌ویو و متاتریدر را در حالت Split Screen قرار بده یا MT5 را به صورت پنجره شناور.\n۲- در تریدینگ‌ویو اندیکاتور مورد نظر که علامت Buy/Sell با قیمت نمایش می‌دهد را فعال کن.\n۳- اسکنر به صورت خودکار صفحه را می‌خواند، عدد قیمت را استخراج می‌کند و در MT5 اردر پندینگ می‌گذارد.\n۴- اگر قیمت علامت عوض شد اردر قبلی حذف و جدید گذاشته می‌شود.\n۵- اگر علامت از صفحه رفت اردر حذف می‌شود.\n\nنکته MT5: برای کارکرد بهتر زبان MT5 را انگلیسی کن و در تنظیمات اجازه One-Click Trading را بده." android:textSize="12sp"/>
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:text="راهنمای حالت جدید متنی:\n۱- در تریدینگ‌ویو ببین اندیکاتورت چه متنی نمایش می‌دهد (مثل 'Long' یا 'Buy' یا 'خرید')\n۲- همان متن را در فیلد 'متن کلیدی خرید/فروش' وارد کن - می‌توانی چند متن را با کاما جدا کنی\n۳- اپ لحظه‌ای (هر ۶۰۰ms) کل صفحه را OCR می‌کند، هرجا آن متن را دید، نزدیک‌ترین عدد اعشاری (مثل 1934.56 یا 1.08542) را استخراج می‌کند\n۴- همان عدد به عنوان قیمت پندینگ در MT5 ثبت می‌شود\n۵- اگر عدد تغییر کرد (مثلا از 1934.5 شد 1935.0) و سیگنال همسان بود (هر دو BUY)، پندینگ قبلی حذف و جدید ثبت می‌شود\n۶- اگر متن از صفحه رفت، پندینگ حذف می‌شود\n\nبرای تست سریع:\n- TradingView را باز کن و یک Long Position دستی بکش که متنش 'Long 1934.5' باشد\n- در اپ بنویس BuyKeywords = 'Long'\n- اسکن را شروع کن - باید قیمت 1934.5 را بگیرد و اردر بگذارد\n" android:textSize="11sp"/>
 
     </LinearLayout>
 </ScrollView>

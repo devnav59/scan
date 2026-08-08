@@ -35,4 +35,8 @@
     <string name="order_type_buy_stop">Buy Stop</string>
     <string name="order_type_sell_stop">Sell Stop</string>
     <string name="desc_drag">برای جابجایی بکشید</string>
+    <string name="hint_buy_keywords">متن کلیدی خرید (مثلا Buy, Long)</string>
+    <string name="hint_sell_keywords">متن کلیدی فروش (مثلا Sell, Short)</string>
+    <string name="hint_decimal_regex">Regex عدد اعشاری</string>
+    <string name="hint_search_radius">شعاع جستجو پیکسل</string>
 </resources>

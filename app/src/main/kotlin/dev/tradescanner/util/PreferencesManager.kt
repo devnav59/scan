@@ -4,8 +4,10 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
+import dev.tradescanner.model.DetectionMode
 import dev.tradescanner.model.OrderConfig
 import dev.tradescanner.model.PendingOrderType
+import dev.tradescanner.model.TextTriggerConfig
 import java.io.ByteArrayOutputStream
 
 class PreferencesManager(context: Context) {
@@ -37,6 +39,32 @@ class PreferencesManager(context: Context) {
         )
     }
 
+    fun saveTextTriggerConfig(config: TextTriggerConfig) {
+        prefs.edit()
+            .putString("buyKeywords", config.buyKeywords)
+            .putString("sellKeywords", config.sellKeywords)
+            .putString("detectionMode", config.detectionMode.name)
+            .putString("decimalRegex", config.decimalRegex)
+            .putInt("searchRadius", config.searchRadiusPx)
+            .putFloat("minConfidence", config.minConfidence)
+            .putBoolean("caseSensitive", config.caseSensitive)
+            .apply()
+    }
+
+    fun loadTextTriggerConfig(): TextTriggerConfig {
+        return TextTriggerConfig(
+            buyKeywords = prefs.getString("buyKeywords", "Buy, Long, BUY, خرید") ?: "Buy, Long",
+            sellKeywords = prefs.getString("sellKeywords", "Sell, Short, SELL, فروش") ?: "Sell, Short",
+            detectionMode = try {
+                DetectionMode.valueOf(prefs.getString("detectionMode", "TEXT_TRIGGER") ?: "TEXT_TRIGGER")
+            } catch (e: Exception) { DetectionMode.TEXT_TRIGGER },
+            decimalRegex = prefs.getString("decimalRegex", """\d+\.\d+""") ?: """\d+\.\d+""",
+            searchRadiusPx = prefs.getInt("searchRadius", 500),
+            minConfidence = prefs.getFloat("minConfidence", 0.6f),
+            caseSensitive = prefs.getBoolean("caseSensitive", false)
+        )
+    }
+
     // Template images stored as base64
     fun saveTemplate(type: String, bitmap: Bitmap) {
         val baos = ByteArrayOutputStream()
@@ -58,8 +86,6 @@ class PreferencesManager(context: Context) {
     }
 
     fun saveMediaProjectionData(resultCode: Int, data: android.content.Intent) {
-        // Store intent for service restart. We store resultCode and serialized intent extras via Preferences?
-        // Since Intent is Parcelable, we store its URI string representation via toUri
         prefs.edit()
             .putInt("mp_resultCode", resultCode)
             .putString("mp_data", data.toUri(0))

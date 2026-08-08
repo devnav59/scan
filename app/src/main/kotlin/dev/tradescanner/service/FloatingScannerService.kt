@@ -115,8 +115,8 @@ class FloatingScannerService : Service() {
                     if (savedCode != -1 && savedData != null) {
                         setupMediaProjection(savedCode, savedData)
                     } else {
-                        Log.w(TAG, "No MediaProjection data, using accessibility screenshot fallback if available")
-                        floatingManager?.updateDebug("⚠ MediaProjection بدون دسترسی - fallback Accessibility فعال")
+                        Log.w(TAG, "No MediaProjection data, using accessibility screenshot fallback")
+                        floatingManager?.updateDebug("No MediaProjection access - fallback Accessibility active")
                     }
                 }
 
@@ -129,7 +129,7 @@ class FloatingScannerService : Service() {
     }
 
     private fun startForegroundWithNotification() {
-        val notification = buildNotification("Scanning... با بوق فعال 🔊", "در حال اسکن صفحه - بوق هنگام تشخیص")
+        val notification = buildNotification("Scanning with beep active", "Scanning screen - beep on detection")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(NOTIF_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
         } else {
@@ -196,7 +196,7 @@ class FloatingScannerService : Service() {
                 override fun onStop() {
                     super.onStop()
                     Log.w(TAG, "MediaProjection stopped")
-                    floatingManager?.updateDebug("❌ MediaProjection متوقف شد")
+                    floatingManager?.updateDebug("MediaProjection stopped")
                     stopScanning()
                 }
             }, null)
@@ -209,10 +209,10 @@ class FloatingScannerService : Service() {
             )
 
             Log.d(TAG, "MediaProjection setup done ${screenWidth}x${screenHeight}")
-            floatingManager?.updateDebug("✅ MediaProjection OK ${screenWidth}x${screenHeight} - اسکن لحظه‌ای فعال")
+            floatingManager?.updateDebug("MediaProjection OK ${screenWidth}x${screenHeight} - live scan active")
         } catch (e: Exception) {
             Log.e(TAG, "setupMediaProjection error", e)
-            floatingManager?.updateDebug("❌ خطای MediaProjection: ${e.message}")
+            floatingManager?.updateDebug("MediaProjection error: ${e.message}")
         }
     }
 
@@ -238,7 +238,7 @@ class FloatingScannerService : Service() {
         scanJob?.cancel()
         scanJob = serviceScope.launch {
             Log.d(TAG, "Scanning loop started interval=$interval mode=${textConfig?.detectionMode}")
-            floatingManager?.updateDebug("🔄 لوپ اسکن شروع شد interval=$interval mode=${textConfig?.detectionMode} keywords=${textConfig?.buyKeywords}")
+            floatingManager?.updateDebug("Scan loop started interval=$interval mode=${textConfig?.detectionMode} keywords=${textConfig?.buyKeywords}")
             while (isActive) {
                 if (!isPaused) {
                     try {
@@ -256,10 +256,9 @@ class FloatingScannerService : Service() {
                                 handleScanResult(signals)
                                 fallback.recycle()
                             } else {
-                                // No bitmap at all - show debug
                                 if (totalScans % 10 == 0) {
                                     withContext(Dispatchers.Main) {
-                                        floatingManager?.updateDebug("⚠ bitmap null - MediaProjection و Accessibility هر دو null - دسترسی‌ها را چک کنید")
+                                        floatingManager?.updateDebug("bitmap null - MediaProjection and Accessibility both null - check permissions")
                                     }
                                 }
                             }
@@ -267,7 +266,7 @@ class FloatingScannerService : Service() {
                     } catch (e: Exception) {
                         Log.e(TAG, "scan loop error", e)
                         withContext(Dispatchers.Main) {
-                            floatingManager?.updateDebug("❌ خطای لوپ: ${e.message}")
+                            floatingManager?.updateDebug("Loop error: ${e.message}")
                         }
                     }
                 }
@@ -346,27 +345,27 @@ class FloatingScannerService : Service() {
 
             if (signals.isEmpty()) {
                 noSignalCount++
-                val ocrSample = if (lastOcrDebug.isNotBlank()) lastOcrDebug else "OCR خالی - شاید صفحه تاریک است یا مجوز اسکرین درست نیست"
-                floatingManager?.updateDebug("🔍 در حال رصد زنده... $debugModeInfo | lines=$lastOcrLines | OCR: $ocrSample | noSignal=$noSignalCount | lastPrice=$lastDetectedPrice")
+                val ocrSample = if (lastOcrDebug.isNotBlank()) lastOcrDebug else "OCR empty - screen dark or permission issue"
+                floatingManager?.updateDebug("Live scanning... $debugModeInfo | lines=$lastOcrLines | OCR: $ocrSample | noSignal=$noSignalCount | lastPrice=$lastDetectedPrice")
                 floatingManager?.showNoSignalDebug(lastOcrLines, ocrSample)
 
                 if (lastDetectedPrice != null && noSignalCount >= 6) {
                     val config = preferences?.loadOrderConfig()
                     if (config?.deleteOnDisappear == true) {
                         Log.d(TAG, "Signal disappeared, deleting order price=$lastDetectedPrice")
-                        floatingManager?.updateStatus("❌ سیگنال حذف شد - در حال حذف اردر $lastDetectedPrice", null)
-                        floatingManager?.updateDebug("سیگنال ناپدید شد - حذف اردر $lastDetectedPrice")
+                        floatingManager?.updateStatus("Signal removed - deleting order $lastDetectedPrice", null)
+                        floatingManager?.updateDebug("Signal disappeared - deleting order $lastDetectedPrice")
                         val result = MT5Automator.getInstance().deletePendingOrder(lastDetectedPrice)
                         Log.d(TAG, "delete result $result")
                         pendingState = PendingOrderState()
                         lastDetectedPrice = null
-                        floatingManager?.updatePrice(null, "بدون سیگنال - اردر حذف شد")
+                        floatingManager?.updatePrice(null, "No signal - order deleted")
                     } else {
                         noSignalCount = 0
                     }
                 } else {
-                    floatingManager?.updateStatus("🔍 اسکن زنده ($totalScans) - بدون سیگنال - منتظر: ${textConfig?.buyKeywords?.split(',')?.firstOrNull()?.trim() ?: 'N/A'}", null)
-                    floatingManager?.updatePrice(null, "⏳ در حال رصد لحظه‌ای...")
+                    floatingManager?.updateStatus("Live scan ($totalScans) - no signal - waiting: ${textConfig?.buyKeywords?.split(',')?.firstOrNull()?.trim() ?: "N/A"}", null)
+                    floatingManager?.updatePrice(null, "Scanning live...")
                 }
             } else {
                 noSignalCount = 0
@@ -375,19 +374,19 @@ class FloatingScannerService : Service() {
                 lastDetectionTime = System.currentTimeMillis()
 
                 floatingManager?.showDetection(best)
-                floatingManager?.updateDebug("✅ ${best.type} @ ${best.price} conf=${String.format("%.2f", best.confidence)} | ${best.rawOcrText.take(80)}")
+                floatingManager?.updateDebug("${best.type} @ ${best.price} conf=${String.format("%.2f", best.confidence)} | ${best.rawOcrText.take(80)}")
 
                 val tolerance = preferences?.loadOrderConfig()?.priceTolerance ?: 0.05
                 val priceChanged = lastDetectedPrice == null || kotlin.math.abs(lastDetectedPrice!! - best.price) > tolerance
 
                 if (priceChanged) {
                     if (pendingState.placedPrice != null) {
-                        floatingManager?.updateStatus("🔄 قیمت تغییر کرد ${pendingState.placedPrice} -> ${best.price} حذف قبلی", best)
+                        floatingManager?.updateStatus("Price changed ${pendingState.placedPrice} -> ${best.price} deleting old", best)
                         MT5Automator.getInstance().deletePendingOrder(pendingState.placedPrice)
                         delay(800)
                     }
 
-                    floatingManager?.updateStatus("🚀 سیگنال جدید ${best.type} @ ${best.price} - ثبت اردر + بوق 🔊", best)
+                    floatingManager?.updateStatus("New signal ${best.type} @ ${best.price} - placing order + beep", best)
                     val result = MT5Automator.getInstance().placePendingOrder(best.price, best.type)
                     Log.d(TAG, "place result $result for price ${best.price}")
 
@@ -395,18 +394,18 @@ class FloatingScannerService : Service() {
                         is dev.tradescanner.model.AutomationResult.Success -> {
                             pendingState = PendingOrderState(placedPrice = best.price, orderType = null, placedTime = System.currentTimeMillis())
                             lastDetectedPrice = best.price
-                            floatingManager?.updatePrice(best.price, "${best.type} @ ${best.price} ✅")
-                            updateNotification("✅ سفارش ثبت شد @ ${best.price} 🔊", "${best.type} @ ${best.price} - بوق")
+                            floatingManager?.updatePrice(best.price, "${best.type} @ ${best.price} OK")
+                            updateNotification("Order placed @ ${best.price} BEEP", "${best.type} @ ${best.price}")
                         }
                         is dev.tradescanner.model.AutomationResult.Failure -> {
-                            floatingManager?.updateStatus("❌ خطا در ثبت سفارش: ${result.reason}", best)
+                            floatingManager?.updateStatus("Error placing order: ${result.reason}", best)
                             floatingManager?.updateDebug("MT5 error: ${result.reason}")
                         }
                         else -> {}
                     }
                 } else {
-                    floatingManager?.updateStatus("✅ سیگنال پایدار @ ${best.price} (${best.type})", best)
-                    floatingManager?.updatePrice(best.price, "${best.type} @ ${best.price} (پایدار)")
+                    floatingManager?.updateStatus("Stable signal @ ${best.price} (${best.type})", best)
+                    floatingManager?.updatePrice(best.price, "${best.type} @ ${best.price} (stable)")
                 }
             }
             floatingManager?.updateScanCount(totalScans)

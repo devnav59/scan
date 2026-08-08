@@ -1,6 +1,7 @@
 package dev.tradescanner.ui.overlay
 
 import android.content.Context
+import android.graphics.Color
 import android.graphics.PixelFormat
 import android.media.AudioManager
 import android.media.ToneGenerator
@@ -199,12 +200,13 @@ class FloatingWindowManager(
 
     fun showDetection(signal: DetectedSignal) {
         mainHandler.post {
-            tvType?.text = "نوع: ${signal.type} - ${if (signal.type.name == "BUY") "خرید 🟢" else "فروش 🔴"}"
-            tvType?.setTextColor(if (signal.type.name == "BUY") 0xFF00E676.toInt() else 0xFFFF5252.toInt())
-            tvPrice?.text = "قیمت: ${signal.price}"
-            tvPrice?.setTextColor(0xFFFFFF00.toInt())
+            val isBuy = signal.type.name == "BUY"
+            tvType?.text = "نوع: ${signal.type} - ${if (isBuy) "خريد BUY" else "فروش SELL"}"
+            tvType?.setTextColor(if (isBuy) Color.parseColor("#00E676") else Color.parseColor("#FF5252"))
+            tvPrice?.text = "قيمت: ${signal.price}"
+            tvPrice?.setTextColor(Color.parseColor("#FFEB3B"))
             tvRaw?.text = "OCR: ${signal.rawOcrText.take(120)}"
-            tvStatus?.text = "✅ سیگنال یافت شد @ ${signal.price}"
+            tvStatus?.text = "سيگنال يافت شد @ ${signal.price}"
             tvBeep?.visibility = View.VISIBLE
             mainHandler.postDelayed({ tvBeep?.visibility = View.INVISIBLE }, 800)
         }
@@ -214,8 +216,8 @@ class FloatingWindowManager(
     fun showNoSignalDebug(ocrLinesCount: Int, lastOcrTextSample: String) {
         mainHandler.post {
             tvType?.text = "نوع: --"
-            tvType?.setTextColor(0xFFAAAAAA.toInt())
-            tvPrice?.text = "بدون سیگنال - در حال رصد..."
+            tvType?.setTextColor(Color.parseColor("#AAAAAA"))
+            tvPrice?.text = "بدون سيگنال - در حال رصد..."
             tvRaw?.text = "OCR lines: $ocrLinesCount | نمونه: ${lastOcrTextSample.take(80)}"
         }
     }

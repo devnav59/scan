@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TradeScanner Floating</string>
+    <string name="title_main">تنظیمات اسکنر ترید</string>
+    <string name="overlay_permission_title">دسترسی پنجره شناور</string>
+    <string name="overlay_permission_desc">برای نمایش پنجره شناور روی سایر اپ‌ها این دسترسی لازم است. در تنظیمات باز شده، اجازه نمایش روی سایر برنامه‌ها را فعال کنید.</string>
+    <string name="accessibility_permission_title">دسترسی Accessibility</string>
+    <string name="accessibility_permission_desc">برای اتوماسیون متاتریدر ۵ (قرار دادن و حذف اردر) نیاز به فعالسازی سرویس Accessibility است.</string>
+    <string name="media_projection_title">دسترسی ضبط صفحه</string>
+    <string name="media_projection_desc">برای اسکن صفحه تریدینگ ویو نیاز به اجازه ضبط صفحه داریم.</string>
+    <string name="notification_title">TradeScanner فعال است</string>
+    <string name="notification_content">در حال اسکن صفحه برای سیگنال‌های خرید/فروش</string>
+    <string name="channel_scanner">Scanner Service</string>
+    <string name="btn_request_overlay">درخواست دسترسی Overlay</string>
+    <string name="btn_request_accessibility">فعالسازی Accessibility</string>
+    <string name="btn_request_media">درخواست دسترسی اسکرین</string>
+    <string name="btn_start_service">شروع اسکن شناور</string>
+    <string name="btn_stop_service">توقف اسکن</string>
+    <string name="hint_stop_loss">استاپ لاس (pip یا قیمت، مثلا 100 یا 50.0)</string>
+    <string name="hint_take_profit">تیک پرافیت (pip یا قیمت)</string>
+    <string name="hint_lot_size">حجم (Lot) مثلا 0.01</string>
+    <string name="hint_symbol">نماد (مثلا XAUUSD یا EURUSD) - خالی = هر نماد</string>
+    <string name="hint_scan_interval">بازه اسکن ms (پیشنهاد 800)</string>
+    <string name="label_buy_template">الگوی سیگنال خرید (اسکرین‌شات)</string>
+    <string name="label_sell_template">الگوی سیگنال فروش</string>
+    <string name="btn_pick_buy">انتخاب عکس خرید</string>
+    <string name="btn_pick_sell">انتخاب عکس فروش</string>
+    <string name="btn_clear_templates">پاکسازی الگوها</string>
+    <string name="status_idle">آماده</string>
+    <string name="float_title">Scanner</string>
+    <string name="float_detected">قیمت: %s</string>
+    <string name="float_no_signal">بدون سیگنال</string>
+    <string name="order_type_buy_limit">Buy Limit</string>
+    <string name="order_type_sell_limit">Sell Limit</string>
+    <string name="order_type_buy_stop">Buy Stop</string>
+    <string name="order_type_sell_stop">Sell Stop</string>
+    <string name="desc_drag">برای جابجایی بکشید</string>
+</resources>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:layout_width="300dp"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_overlay"
+    android:padding="12dp"
+    android:elevation="8dp">
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+        <ImageView android:layout_width="24dp" android:layout_height="24dp" android:src="@drawable/ic_scan"/>
+        <TextView android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/float_title" android:textColor="#FFF" android:textStyle="bold" android:layout_marginStart="8dp"/>
+        <ImageView android:id="@+id/btnClose" android:layout_width="28dp" android:layout_height="28dp" android:src="@android:drawable/ic_menu_close_clear_cancel" android:background="?attr/selectableItemBackgroundBorderless" android:padding="4dp"/>
+    </LinearLayout>
+
+    <TextView android:id="@+id/tvFloatStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Scanning..." android:textColor="#FFF" android:textSize="12sp" android:layout_marginTop="8dp"/>
+    <TextView android:id="@+id/tvFloatPrice" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="بدون سیگنال" android:textColor="#FFEB3B" android:textSize="18sp" android:textStyle="bold" android:layout_marginTop="4dp"/>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="8dp">
+        <Button android:id="@+id/btnFloatPause" android:layout_width="0dp" android:layout_weight="1" android:layout_height="36dp" android:text="Pause" android:textSize="11sp"/>
+        <Button android:id="@+id/btnFloatSettings" android:layout_width="0dp" android:layout_weight="1" android:layout_height="36dp" android:text="Settings" android:textSize="11sp" android:layout_marginStart="6dp"/>
+    </LinearLayout>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="6dp">
+        <TextView android:id="@+id/tvSlTp" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="SL: - TP: -" android:textColor="#CCC" android:textSize="10sp"/>
+        <TextView android:id="@+id/tvScanCount" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0 scans" android:textColor="#888" android:textSize="10sp"/>
+    </LinearLayout>
+
+    <!-- Calibration hint -->
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="پنجره را بکشید تا جابجا شود. دابل تپ برای کوچک/بزرگ." android:textColor="#777" android:textSize="9sp" android:layout_marginTop="6dp"/>
+
+</LinearLayout>

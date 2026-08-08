@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.TradeScanner" parent="Theme.Material3.DayNight">
+        <item name="colorPrimary">@color/purple_500</item>
+    </style>
+    <style name="Theme.Overlay" parent="android:Theme.Translucent.NoTitleBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+    </style>
+</resources>
